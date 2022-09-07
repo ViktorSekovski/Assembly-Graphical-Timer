@@ -1,0 +1,223 @@
+; STOPWATCH - by Viktor Sekovski
+; Works at 64KHz Speed
+; Counts Seconds and Minutes
+
+
+JMP main
+store:
+    PUSH A                  ; Store registers that ISR uses.
+    MOV A, 2                ; Set second bit to clear the interrupt.
+    OUT 2                   ; Clear the interrupt
+inc_sec_r:
+    MOVB AL, [0x0ee5]       ; Get current character.
+    CMPB AL, 57
+    JE inc_sec_l
+    INCB AL                 ; Increase character.
+    MOVB [0x0ee5], AL       ; Write new character.
+    JMP restore
+inc_sec_l:
+    MOVB AL, 48
+    MOVB [0x0ee5], AL
+    MOVB AL, [0x0ee4]
+    CMPB AL, 53
+    JE inc_min_l
+    INCB AL
+    MOVB [0x0ee4], AL
+    JMP restore
+inc_min_l:
+    MOVB AL, 48
+    MOVB [0x0ee4], AL
+    MOVB AL, [0x0ee3]
+    CMPB AL, 57
+    JE inc_min_r
+    INCB AL
+    MOVB [0x0ee3], AL
+    JMP restore
+inc_min_r:
+    MOVB AL, 48
+    MOVB [0x0ee3], AL
+    MOVB AL, [0x0ee2]
+    INCB AL
+    MOVB [0x0ee2], AL
+    JMP restore
+restore:
+    CALL update_nb:
+    POP A                        ; Restore registers to their original values.
+    IRET                         ; Return from interrupt.
+
+main:
+    MOV SP, 0x0edf               ; Initialize stack pointer.
+    MOVB [0x0ee0], 48            ; Display Values
+    MOVB [0x0ee1], 48
+    MOVB [0x0ee2], 48
+    MOVB [0x0ee3], 48
+    MOVB [0x0ee4], 48
+    MOVB [0x0ee5], 48
+    MOV A, [zero]
+    MOV D, 0x0F09
+    CALL load
+    MOV A, [zero]
+    MOV D, 0x0F0D
+    CALL load
+    MOV A, [zero]
+    MOV D, 0x0F69
+    CALL load
+    MOV A, [zero]
+    MOV D, 0x0F6D
+    CALL load
+    MOV A, 64000            ; 1 second = 64000 cycles
+    OUT 3                   ; Preload counter to 64000
+    MOV A, 2                ; Enable second bit timer interrupts.
+    OUT 0                   ; Enable timer interrupts
+    STI                     ; Enable interrupts globally
+    HLT                 
+
+compare_and_load:       
+    czero:
+    CMPB AL, 48         
+    JNE comp            
+    PUSH A              
+    MOV A, [zero]       
+    CALL load
+    POP A               
+    JMP out_of_load
+comp:
+    CMPB AL, 49
+    JNE ctwo
+    PUSH A
+    MOV A, [one]
+    CALL load
+    POP A
+    JMP out_of_load
+ctwo:
+    CMPB AL, 50
+    JNE cthree
+    PUSH A
+    MOV A, [two]
+    CALL load
+    POP A
+    JMP out_of_load
+cthree:
+    CMPB AL, 51
+    JNE cfour
+    PUSH A
+    MOV A, [three]
+    CALL load
+    POP A
+    JMP out_of_load
+cfour:
+    CMPB AL, 52
+    JNE cfive
+    PUSH A
+    MOV A, [four]
+    CALL load
+    POP A
+    JMP out_of_load
+cfive:
+    CMPB AL, 53
+    JNE csix
+    PUSH A
+    MOV A, [five]
+    CALL load
+    POP A
+    JMP out_of_load
+csix:
+    CMPB AL, 54
+    JNE cseven
+    PUSH A
+    MOV A, [six]
+    CALL load
+    POP A
+    JMP out_of_load
+cseven:
+    CMPB AL, 55
+    JNE ceight
+    PUSH A
+    MOV A, [seven]
+    CALL load
+    POP A
+    JMP out_of_load
+ceight:
+    CMPB AL, 56
+    JNE cnine
+    PUSH A
+    MOV A, [eight]
+    CALL load
+    POP A
+    JMP out_of_load
+cnine:
+    CMPB AL, 57
+    PUSH A
+    MOV A, [nine]
+    CALL load
+    POP A
+    JMP out_of_load
+out_of_load:
+    RET
+
+update_nb:              
+    MOV D, 0x0F0D
+    MOVB AL, [0x0ee3]
+    CALL compare_and_load
+    MOV D, 0x0F69
+    MOVB AL, [0x0ee4]
+    CALL compare_and_load
+    MOV D, 0x0F6D
+    MOVB AL, [0x0ee5]
+    CALL compare_and_load
+    RET
+
+load:
+    MOV C, 0
+    MOV B, A
+load_loop:
+    MOV A, B
+    CMPB CH, 15
+    JAE load_ret
+    CMPB CL, 3
+    JB load_continue
+    MOVB CL, 0          
+    SUB D, 3            
+    ADD D, 16
+load_continue:
+    AND A, 1
+    CMP A, 0
+    JE background
+color:
+    MOVB [D], 0x99
+    ADD C, 257  
+    INC D
+    SHR B, 1
+    JMP load_loop
+background:
+    MOVB [D], 0x00
+    ADD C, 257
+    INC D
+    SHR B, 1
+    JMP load_loop
+load_ret:
+    RET
+    
+    ;On Screen Numbers
+blank:
+    DW 0
+zero:
+    DW 0111101101101111b
+one:
+    DW 1100100110110100b
+two:
+    DW 1111010100101111b
+three:
+    DW 0111100110100111b    
+four:
+    DW 0100100111101101b 
+five:
+    DW 0111100111001111b  
+six:
+    DW 0111101111001111b
+seven:
+    DW 0001001010100111b
+eight:
+    DW 0111101111101111b
+nine:
+    DW 0111100111101111b
